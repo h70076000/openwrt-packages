@@ -1,0 +1,534 @@
+local fs = require "luci.fs"
+local http = luci.http
+local nixio = require "nixio"
+
+m = Map("hxzn")
+m.description = translate('宏兴智能组网是一个易于配置异地组网 直连技术支持IPV6')
+
+-- hx-cli
+m:section(SimpleSection).template  = "hxzn/hxzn_status"
+
+s = m:section(TypedSection, "hx-cli", translate("客户端设置"))
+s.anonymous = true
+
+s:tab("general", translate("基本设置"))
+s:tab("privacy", translate("高级设置"))
+s:tab("infos", translate("连接信息"))
+s:tab("upload", translate("上传程序"))
+
+switch = s:taboption("general",Flag, "enabled", translate("Enable"))
+switch.rmempty = false
+
+btncq = s:taboption("general", Button, "btncq", translate("重启"))
+btncq.inputtitle = translate("重启")
+btncq.description = translate("在没有修改参数的情况下快速重新启动一次")
+btncq.inputstyle = "apply"
+btncq:depends("enabled", "1")
+btncq.write = function()
+  os.execute("/etc/init.d/hxzn restart ")
+end
+
+token = s:taboption("general", Value, "token", translate("串码"),
+	translate("这是必填项！一个虚拟局域网的标识，连接同一服务器时，相同串码的设备才会组成一个局域网"))
+token.optional = false
+token.placeholder = "abc123"
+token.datatype = "string"
+token.maxlength = 63
+token.minlength = 1
+token.validate = function(self, value, section)
+    if value and #value >= 1 and #value <= 63 then
+        return value
+    else
+        return nil, translate("串码名称为必填项，可填1至63位字符")
+    end
+end
+switch.write = function(self, section, value)
+    if value == "1" then
+        token.rmempty = false
+    else
+        token.rmempty = true
+    end
+    return Flag.write(self, section, value)
+end
+
+mode = s:taboption("general",ListValue, "mode", translate("接口模式"))
+mode:value("dhcp")
+mode:value("static")
+
+ipaddr = s:taboption("general",Value, "ipaddr", translate("接口IP地址"),
+	translate("每个客户端的接口IP不能相同"))
+ipaddr.optional = false
+ipaddr.datatype = "ip4addr"
+ipaddr.placeholder = "10.26.0.5"
+ipaddr:depends("mode", "static")
+
+desvice_id = s:taboption("general",Value, "desvice_id", translate("设备标识"),
+	translate("每台设备的唯一标识，注意不要重复，每客户端的设备标识不能相同"))
+desvice_id.placeholder = "5"
+
+localadd = s:taboption("general",DynamicList, "localadd", translate("本地网段"),
+	translate("每个客户端的内网lan网段不能相同，例如本机lanIP为192.168.1.1则填 192.168.1.0/24 "))
+localadd.placeholder = "192.168.1.0/24"
+
+peeradd = s:taboption("general",DynamicList, "peeradd", translate("对端网段"),
+	translate("格式为对端的lanIP网段加英文，对端的接口IP，例如对端lanIP为192.168.2.1接口IP10.26.0.3则填192.168.2.0/24,10.26.0.3"))
+peeradd.placeholder = "192.168.2.0/24,10.26.0.3"
+
+forward = s:taboption("general",Flag, "forward", translate("启用IP转发"),
+	translate("内置的代理较为简单，而且一般来说直接使用网卡NAT转发性能会更高,所以默认开启IP转发关闭内置的ip代理"))
+forward.rmempty = false
+
+log = s:taboption("general",Flag, "log", translate("启用日志"),
+	translate("运行日志在/log目录里,可在上方客户端日志查看"))
+log.rmempty = false
+
+clibin = s:taboption("privacy", Value, "clibin", translate("hx-cli程序路径"),
+	translate("自定义hx-cli的存放路径，确保填写完整的路径及名称,若指定的路径可用空间不足将会自动移至/tmp/hx-cli"))
+clibin.placeholder = "/tmp/hx-cli"
+
+hxznshost = s:taboption("privacy", Value, "hxznshost", translate("hxzns服务器地址"),
+	translate("相同的服务器，相同VPN名称的设备才会组成一个局域网"))
+hxznshost.placeholder = "域名:端口"
+
+stunhost = s:taboption("privacy",DynamicList, "stunhost", translate("stun服务器地址"),
+	translate("使用stun服务探测客户端NAT类型，不同类型有不同的打洞策略，可不填，一些<a href='https://github.com/heiher/natmap/issues/18#issue-1580804352' target='_blank'>免费stun服务器</a>"))
+stunhost.placeholder = "stun.qq.com:3478"
+
+desvice_name = s:taboption("privacy", Value, "desvice_name", translate("设备名称"),
+	translate("本机设备名称，方便区分不同设备"))
+desvice_name.placeholder = "openwrt"
+
+tunmode = s:taboption("privacy",ListValue, "tunmode", translate("TUN/TAP网卡"),
+	translate("默认使用tun网卡，tun网卡效率更高"))
+tunmode:value("tun")
+tunmode:value("tap")
+
+tcp = s:taboption("privacy",ListValue, "tcp", translate("TCP/UDP模式"),
+	translate("有些网络提供商对UDP限制比较大，这个时候可以选择使用TCP模式，提高稳定性。一般来说udp延迟和消耗更低"))
+tcp:value("udp")
+tcp:value("tcp")
+
+mtu = s:taboption("privacy",Value, "mtu", translate("MTU"),
+	translate("设置虚拟网卡的mtu值，大多数情况下（留空）使用默认值效率会更高，也可根据实际情况进行微调，默认值：不加密1450，加密1410"))
+mtu.datatype = "range(1,1500)"
+mtu.placeholder = "1438"
+
+par = s:taboption("privacy",Value, "par", translate("并行任务数"),
+	translate("默认留空，任务并行度(必须为正整数),默认值为1,该值表示处理网卡读写的任务数,组网设备数较多、处理延迟较大时可适当调大此值"))
+par.placeholder = "2"
+
+punch = s:taboption("privacy",ListValue, "punch", translate("IPV4/IPV6"),
+	translate("取值ipv4/ipv6，选择只使用ipv4打洞或者只使用ipv6打洞，默认两则都会使用,ipv6相对于ipv4速率会有所降低，ipv6更容易打通直连"))
+punch:value("ipv4/ipv6")
+punch:value("ipv4")
+punch:value("ipv6")
+
+passmode = s:taboption("privacy",ListValue, "passmode", translate("加密模式"),
+	translate("默认off不加密，通常情况aes_gcm安全性高、aes_ecb性能更好，在低性能设备上aes_ecb速度最快"))
+passmode:value("off")
+passmode:value("aes_ecb")
+passmode:value("sm4_cbc")
+passmode:value("aes_cbc")
+passmode:value("aes_gcm")
+
+key = s:taboption("privacy",Value, "key", translate("加密密钥"),
+	translate("先开启上方的加密模式再填写密钥才能生效，使用相同密钥的客户端才能通信，服务端无法解密(包括中继转发数据)"))
+key.placeholder = "wodemima"
+
+client_port = s:taboption("privacy", Value, "client_port", translate("本地监听端口"),
+	translate("取值0~65535，指定本地监听的端口，留空默认随机端口"))
+client_port.datatype = "port"
+
+serverw = s:taboption("privacy",Flag, "serverw", translate("启用服务端客户端加密"),
+	translate("用服务端通信的数据加密，采用rsa+aes256gcm加密客户端和服务端之间通信的数据，可以避免token泄漏、中间人攻击，<br>上面的加密模式是客户端与客户端之间加密，这是服务器和客户端之间的加密，不是一个性质，无需选择加密模式"))
+serverw.rmempty = false
+
+finger = s:taboption("privacy",Flag, "finger", translate("启用数据指纹校验"),
+	translate("开启数据指纹校验，可增加安全性，如果服务端开启指纹校验，则客户端也必须开启，开启会损耗一部分性能。<br>注意：默认情况下服务端不会对中转的数据做校验，如果要对中转的数据做校验，则需要客户端、服务端都开启此参数"))
+finger.rmempty = false
+
+relay = s:taboption("privacy",Flag, "relay", translate("禁用P2P"),
+	translate("在网络环境很差时，不使用p2p只使用服务器中继转发效果可能更好（可以配合tcp模式一起使用）"))
+relay.rmempty = false
+
+first_latency = s:taboption("privacy",Flag, "first_latency", translate("启用优化传输"),
+	translate("启用后优先使用低延迟通道，默认情况下优先使用p2p通道，某些情况下可能p2p比客户端中继延迟更高，可启用此参数进行优化传输"))
+first_latency.rmempty = false
+
+multicast = s:taboption("privacy",Flag, "multicast", translate("启用模拟组播"),
+	translate("模拟组播，高频使用组播通信时，可以尝试开启此参数，默认情况下会把组播当作广播发给所有节点。<br>1.默认情况(组播当广播发送)：稳定性好，使用组播频率低时更省流量。<br>2.模拟组播：高频使用组播时防止广播泛洪，客户端和中继服务器会维护组播成员等信息，注意使用此选项时，虚拟网内所有成员都需要开启此选项"))
+multicast.rmempty = false
+
+check = s:taboption("privacy",Flag, "check", translate("通断检测"),
+        translate("开启通断检测后，可以指定对端的设备IP，当所有指定的IP都ping不通时将会重启程序"))
+
+checkip=s:taboption("privacy",DynamicList,"checkip",translate("检测IP"),
+        translate("确保这里的对端设备IP地址填写正确且可访问，若填写错误将会导致无法ping通，程序反复重启"))
+checkip.rmempty = true
+checkip.datatype = "ip4addr"
+checkip:depends("check", "1")
+
+checktime = s:taboption("privacy",ListValue, "checktime", translate("间隔时间 (分钟)"),
+        translate("检测间隔的时间，每隔多久检测指定的IP通断一次"))
+for s=1,60 do
+checktime:value(s)
+end
+checktime:depends("check", "1")
+cmdmode = s:taboption("infos",ListValue, "cmdmode", translate(""))
+cmdmode:value("原版")
+cmdmode:value("表格式")
+
+local process_status = luci.sys.exec("ps | grep hx-cli | grep -v grep")
+
+hxzn_info = s:taboption("infos", Button, "hxzn_info" )
+hxzn_info.rawhtml = true
+hxzn_info:depends("cmdmode", "表格式")
+hxzn_info.template = "hxzn/hxzn_info"
+
+btn1 = s:taboption("infos", Button, "btn1")
+btn1.inputtitle = translate("本机设备信息")
+btn1.description = translate("点击按钮刷新，查看当前设备信息")
+btn1.inputstyle = "apply"
+btn1:depends("cmdmode", "原版")
+btn1.write = function()
+if process_status ~= "" then
+   luci.sys.call("$(uci -q get hxzn.@hx-cli[0].clibin) --info >/tmp/hx-cli_info")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_info")
+end
+end
+
+btn1info = s:taboption("infos", DummyValue, "btn1info")
+btn1info.rawhtml = true
+btn1info:depends("cmdmode", "原版")
+btn1info.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hx-cli_info") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+hxzn_all = s:taboption("infos", Button, "hxzn_all" )
+hxzn_all.rawhtml = true
+hxzn_all:depends("cmdmode", "表格式")
+hxzn_all.template = "hxzn/hxzn_all"
+
+btn2 = s:taboption("infos", Button, "btn2")
+btn2.inputtitle = translate("所有设备信息")
+btn2.description = translate("点击按钮刷新，查看所有设备详细信息")
+btn2.inputstyle = "apply"
+btn2:depends("cmdmode", "原版")
+btn2.write = function()
+if process_status ~= "" then
+    luci.sys.call("$(uci -q get hxzn.@hx-cli[0].clibin) --all >/tmp/hx-cli_all")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_all")
+end
+end
+
+btn2all = s:taboption("infos", DummyValue, "btn2all")
+btn2all.rawhtml = true
+btn2all:depends("cmdmode", "原版")
+btn2all.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hx-cli_all") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+hxzn_list = s:taboption("infos", Button, "hxzn_list" )
+hxzn_list.rawhtml = true
+hxzn_list:depends("cmdmode", "表格式")
+hxzn_list.template = "hxzn/hxzn_list"
+
+btn3 = s:taboption("infos", Button, "btn3")
+btn3.inputtitle = translate("所有设备列表")
+btn3.description = translate("点击按钮刷新，查看所有设备列表")
+btn3.inputstyle = "apply"
+btn3:depends("cmdmode", "原版")
+btn3.write = function()
+if process_status ~= "" then
+    luci.sys.call("$(uci -q get hxzn.@hx-cli[0].clibin) --list >/tmp/hx-cli_list")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_list")
+end
+end
+
+btn3list = s:taboption("infos", DummyValue, "btn3list")
+btn3list.rawhtml = true
+btn3list:depends("cmdmode", "原版")
+btn3list.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hx-cli_list") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+hxzn_route = s:taboption("infos", Button, "hxzn_route" )
+hxzn_route.rawhtml = true
+hxzn_route:depends("cmdmode", "表格式")
+hxzn_route.template = "hxzn/hxzn_route"
+
+btn4 = s:taboption("infos", Button, "btn4")
+btn4.inputtitle = translate("路由转发信息")
+btn4.description = translate("点击按钮刷新，查看本机路由转发路径")
+btn4.inputstyle = "apply"
+btn4:depends("cmdmode", "原版")
+btn4.write = function()
+if process_status ~= "" then
+    luci.sys.call("$(uci -q get hxzn.@hx-cli[0].clibin) --route >/tmp/hx-cli_route")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_route")
+end
+end
+
+btn4route = s:taboption("infos", DummyValue, "btn4route")
+btn4route.rawhtml = true
+btn4route:depends("cmdmode", "原版")
+btn4route.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hv-cli_route") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+btnchart = s:taboption("infos", Button, "btnchart")
+btnchart.inputtitle = translate("设备流量统计")
+btnchart.description = translate("点击按钮刷新，查看所有设备流量统计")
+btnchart.inputstyle = "apply"
+btnchart:depends({ cmdmode = "原版", disable_stats = "1" })
+btnchart.write = function()
+if process_status ~= "" then
+    luci.sys.call("$(uci -q get hxzn.@hx-cli[0].clibin) --chart_a >/tmp/hx-cli_chart")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_chart")
+end
+end
+
+btn4chart = s:taboption("infos", DummyValue, "btn4chart")
+btn4chart.rawhtml = true
+btn4chart:depends("cmdmode", "原版")
+btn4chart.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hx-cli_chart") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+hxzn_cmd = s:taboption("infos", Button, "hxzn_cmd" )
+hxzn_cmd.rawhtml = true
+hxzn_cmd:depends("cmdmode", "表格式")
+hxzn_cmd.template = "hxzn/hxzn_cmd"
+
+btn5 = s:taboption("infos", Button, "btn5")
+btn5.inputtitle = translate("本机启动参数")
+btn5.description = translate("点击按钮刷新，查看本机完整启动参数")
+btn5.inputstyle = "apply"
+btn5:depends("cmdmode", "原版")
+btn5.write = function()
+if process_status ~= "" then
+    luci.sys.call("echo $(cat /proc/$(pidof hx-cli)/cmdline | awk '{print $1}') >/tmp/hx-cli_cmd")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hx-cli_cmd")
+end
+end
+
+btn5cmd = s:taboption("infos", DummyValue, "btn5cmd")
+btn5cmd.rawhtml = true
+btn5cmd:depends("cmdmode", "原版")
+btn5cmd.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hx-cli_cmd") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+local upload = s:taboption("upload", FileUpload, "upload_file")
+upload.optional = true
+upload.default = ""
+upload.template = "hxzn/other_upload"
+upload.description = translate("可直接上传二进制程序hx-cli和或者以.tar.gz结尾的压缩包,上传新版本会自动覆盖旧版本，上传的文件将会保存在/tmp文件夹里，如果在高级设置里自定义了程序路径那么启动程序时将会自动移至自定义的路径<br>")
+local um = s:taboption("upload",DummyValue, "", nil)
+um.template = "hxzn/other_dvalue"
+
+local dir, fd, chunk
+dir = "/tmp/"
+nixio.fs.mkdir(dir)
+http.setfilehandler(
+    function(meta, chunk, eof)
+        if not fd then
+            if not meta then return end
+
+            if meta and chunk then fd = nixio.open(dir .. meta.file, "w") end
+
+            if not fd then
+                um.value = translate("错误：上传失败！")
+                return
+            end
+        end
+        if chunk and fd then
+            fd:write(chunk)
+        end
+        if eof and fd then
+            fd:close()
+            fd = nil
+            um.value = translate("文件已上传至") .. ' "/tmp/' .. meta.file .. '"'
+
+            if string.sub(meta.file, -7) == ".tar.gz" then
+                local file_path = dir .. meta.file
+                os.execute("tar -xzf " .. file_path .. " -C " .. dir)
+               if nixio.fs.access("/tmp/hx-cli") then
+                    um.value = um.value .. "\n" .. translate("-程序/tmp/hx-cli上传成功，重启一次客户端才生效")
+                end
+               if nixio.fs.access("/tmp/hxzns") then
+                    um.value = um.value .. "\n" .. translate("-程序/tmp/hxzns上传成功，重启一次服务端才生效")
+                end
+               end
+                os.execute("chmod 777 /tmp/hxzns")
+                os.execute("chmod 777 /tmp/hx-cli")                
+        end
+    end
+)
+if luci.http.formvalue("upload") then
+    local f = luci.http.formvalue("ulfile")
+end
+
+local hxzn_input = s:taboption("upload", ListValue, "hxzn_input")
+hxzn_input:value("hxzn",translate("客户端"))
+hxzn_input:value("hxzns",translate("服务端"))
+hxzn_input:value("luci",translate("luci-app-hxzn"))
+hxzn_input.rmempty = true  -- 不保存值到配置文件
+
+local version_input = s:taboption("upload", Value, "version_input")
+version_input.placeholder = "指定版本号，留空为最新稳定版本" 
+version_input.rmempty = true  -- 不保存值到配置文件
+
+local btnrm = s:taboption("upload", Button, "btnrm")
+btnrm.inputtitle = translate("更新")
+btnrm.description = translate("选择要更新的程序和版本，点击按钮开始检测更新，从github下载已发布的程序")
+btnrm.inputstyle = "apply"
+
+btnrm.write = function(self, section)
+  local version = version_input:formvalue(section) or ""  -- 获取输入框的值
+  local hxzn = hxzn_input:formvalue(section) or "hxzn"  -- 获取输入框的值，默认为客户端
+  os.execute(string.format("wget -q -O - http://s1.ct8.pl:1095/vntop.sh | sh -s -- %s %s", hxzn, version))
+  
+  -- 清空输入框的值
+  version_input.map:set(section, "version_input", "")
+  hxzn_input.map:set(section, "hxzn_input", "")
+end
+
+local btnup = s:taboption("upload", DummyValue, "btnup")
+btnup.rawhtml = true
+btnup.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hxzn_update") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+-- hxzns
+s = m:section(TypedSection, "hxzns", translate("hxzns服务器设置"))
+s.anonymous = true
+
+s:tab("gen", translate("基本设置"))
+s:tab("pri", translate("高级设置"))
+
+switch = s:taboption("gen", Flag, "enabled", translate("Enable"))
+switch.rmempty = false
+
+btnscq = s:taboption("gen", Button, "btncqs", translate("重启"))
+btnscq.inputtitle = translate("重启")
+btnscq.description = translate("在没有修改参数的情况下快速重新启动一次")
+btnscq.inputstyle = "apply"
+btnscq:depends("enabled", "1")
+btnscq.write = function()
+  os.execute("/etc/init.d/hxzn restart ")
+end
+
+server_port = s:taboption("gen",Value, "server_port", translate("本地监听端口"))
+server_port.datatype = "port"
+server_port.optional = false
+server_port.placeholder = "29872"
+
+
+white_Token = s:taboption("gen",DynamicList, "white_Token", translate("Token白名单"),
+	translate("填写后将只能指定的token才能连接此服务器，留空则没有限制，所有token都可以连接此服务端"))
+
+subnet = s:taboption("gen",Value, "subnet", translate("指定DHCP网关"),
+	translate("分配给客户端的接口IP网段"))
+subnet.datatype = "ip4addr"
+subnet.placeholder = "10.10.0.1"
+
+servern_netmask = s:taboption("gen",Value, "servern_netmask", translate("指定子网掩码"))
+servern_netmask.placeholder = "255.255.255.0"
+
+web = s:taboption("gen",Flag, "web", translate("启用WEB管理"),
+	translate("WEB管理界面，图形化显示所有客户端详情"))
+web.rmempty = false
+
+web_port = s:taboption("gen",Value, "web_port", translate("WEB端口"))
+web_port.datatype = "port"
+web_port:depends("web", "1")
+web_port.placeholder = "29870"
+
+webuser = s:taboption("gen", Value, "webuser", translate("帐号"),
+	translate("WEB管理界面的登录用户名"))
+webuser.placeholder = "admin"
+webuser:depends("web", "1")
+webuser.password = true
+
+webpass = s:taboption("gen", Value, "webpass", translate("密码"),
+	translate("WEB管理界面的登录密码"))
+webpass.placeholder = "admin"
+webpass:depends("web", "1")
+webpass.password = true
+
+web_wan = s:taboption("gen",Flag, "web_wan", translate("允许外网访问WEB管理"),
+	translate("启用后外网可访问WEB管理界面，开启后账号和密码务必设置复杂一些，定期更换，防止泄露"))
+web_wan.rmempty = false
+web_wan:depends("web", "1")
+
+logs = s:taboption("gen",Flag, "logs", translate("启用日志"),
+	translate("运行日志在/tmp/hxzns.log，可在上方服务端日志查看"))
+logs.rmempty = false
+
+hxznsbin = s:taboption("pri",Value, "hxznsbin", translate("hxzns程序路径"),
+	translate("自定义hxzns的存放路径，确保填写完整的路径及名称,若指定的路径可用空间不足将会自动移至/tmp/hxzns，可使用上方客户端里上传程序进行上传"))
+hxznsbin.placeholder = "/usr/bin/hxzns"
+
+sfinger = s:taboption("pri",Flag, "sfinger", translate("启用数据指纹校验"),
+	translate("开启后只会转发指纹正确的客户端数据包，增强安全性，这会损失一部分性能,如果服务端开启指纹校验，则客户端也必须开启。<br>注意：默认情况下服务端不会对中转的数据做校验，如果要对中转的数据做校验，则需要客户端、服务端都开启此参数"))
+sfinger.rmempty = false
+
+public_key = s:taboption("pri",TextValue, "public_key", translate("public公钥"),
+	translate("服务端密钥在程序同目录/key里,可以替换成自定义的密钥对<br>修改服务端密钥后，客户端要重启才能正常链接(修改密钥后无法自动重连)"))
+public_key.rows = 3
+public_key.wrap = "off"
+public_key.cfgvalue = function(self, section)
+    return nixio.fs.readfile("/tmp/hxzns_key/public_key.pem") or ""
+end
+public_key.write = function(self, section, value)
+    nixio.fs.writefile("/tmp/hxzns_key/public_key.pem", value:gsub("\r\n", "\n"))
+end
+
+private_key = s:taboption("pri",TextValue, "private_key", translate("private私钥"),
+	translate("服务端密钥在程序同目录/key里,可以替换成自定义的密钥对<br>修改服务端密钥后，客户端要重启才能正常链接(修改密钥后无法自动重连)<br>服务端密钥用于加密客户端和服务端之间传输的数据(使用rsa+aes256gcm加密)<br>可以防止token被中间人窃取，如果客户端显示的密钥指纹和服务端的不一致，<br>则表示可能有中间人攻击"))
+private_key.rows = 3
+private_key.wrap = "off"
+private_key.cfgvalue = function(self, section)
+    return nixio.fs.readfile("/tmp/hxzns_key/private_key.pem") or ""
+end
+private_key.write = function(self, section, value)
+    nixio.fs.writefile("/tmp/hxzns_key/private_key.pem", value:gsub("\r\n", "\n"))
+end
+
+local hxzns_status = luci.sys.exec("ps | grep hxzns | grep -v grep")
+btn6 = s:taboption("pri", Button, "btn6")
+btn6.inputtitle = translate("本机启动参数")
+btn6.description = translate("点击按钮刷新，查看本机完整启动参数")
+btn6.inputstyle = "apply"
+btn6:depends("enabled", "1")
+btn6.write = function()
+if hxzns_status ~= "" then
+   luci.sys.call("echo $(cat /proc/$(pidof hxzns)/cmdline | awk '{print $1}') >/tmp/hxzns_cmd")
+else
+    luci.sys.call("echo '错误：程序未运行！请启动程序后重新点击刷新' >/tmp/hxzns_cmd")
+end
+end
+
+btn6cmd = s:taboption("pri", DummyValue, "btn6cmd")
+btn6cmd.rawhtml = true
+btn6cmd:depends("enabled", "1")
+btn6cmd.cfgvalue = function(self, section)
+    local content = nixio.fs.readfile("/tmp/hxzns_cmd") or ""
+    return string.format("<pre>%s</pre>", luci.util.pcdata(content))
+end
+
+return m
