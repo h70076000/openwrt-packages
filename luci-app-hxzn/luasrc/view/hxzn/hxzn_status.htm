@@ -1,0 +1,32 @@
+<script type="text/javascript">//<![CDATA[
+XHR.poll(3, '<%=url([[admin]], [[services]], [[hxzn]], [[status]])%>', null,
+    function(x, data) {
+        var st = document.getElementById('hxzn_status');
+        if (data && st) {
+               var clientStatus = data.crunning ? "<span style='color:green;'> 运行中</span>" : "<span style='color:red;'> 未运行</span>";
+                var serverStatus = data.srunning ? "<span style='color:green;'> 运行中</span>" : "<span style='color:red;'> 未运行</span>";
+            var hxznstaContent = data.crunning ? "已运行：" + "<span style='color:#DA70D6;'>" + data.hxznsta + "</span>" : "";    
+            var hxzncpuContent = data.crunning ? "<br>" + "CPU占用：" + "<span style='color:#6A5ACD;'>" + data.hxzncpu + "</span>" : "";  
+            var hxznramContent = data.crunning ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + "&nbsp;&nbsp;&nbsp;&nbsp;内存占用：" + "<span style='color:#0000CD;'>" + data.hxznram + "</span>" : ""; 
+            var hxznsta2Content = data.srunning ? "&nbsp;&nbsp;&nbsp;&nbsp;" + "&nbsp;&nbsp;已&nbsp;运&nbsp;行&nbsp;：" + "<span style='color:#DA70D6;'>" + data.hxznsta2 + "</span>" : "";    
+            var hxznscpuContent = data.srunning ? "<br>" + "CPU占用：" + "<span style='color:#6A5ACD;'>" + data.hxznscpu + "</span>" : "";  
+            var hxznsramContent = data.srunning ? "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + "&nbsp;&nbsp;&nbsp;内存占用：" + "<span style='color:#0000CD;'>" + data.hxznsram + "</span>" : "";
+            var hxzntagContent = data.crunning ? "<br>" + "当前版本：" + "<span style='color:#CD853F;'>" + data.hxzntag + "</span>" : ""; 
+            var hxznnewtagContent = data.crunning ? "&nbsp;&nbsp;&nbsp;&nbsp;" + "&nbsp;&nbsp;&nbsp;最新版本：" + "<span style='color:#FFA500;'>" + data.hxznnewtag + "</span>" : "";    
+            var hxznstagContent = data.srunning ? "<br>" + "当前版本：" + "<span style='color:#CD853F;'>" + data.hxznstag + "</span>" : "";  
+            var hxznsnewtagContent = data.srunning ? "&nbsp;&nbsp;&nbsp;" + "最新版本：" + "<span style='color:#FFA500;'>" + data.hxznnewtag + "</span>" : "";
+            var hxznswebContent = "";
+            if (data.web !== 0 && data.srunning) {
+                hxznswebContent = "&nbsp;&nbsp;&nbsp;" + "<input class=\"cbi-button cbi-button-reload mar-10\" type=\"button\" value=\" <%:Web 界面%> \" onclick=\"window.open('<%=protocol%>" + window.location.hostname + ":" + data.port + "/')\"/>";
+            }
+            st.innerHTML = "<em><b>组网 " + clientStatus + hxznstaContent + hxzncpuContent + hxznramContent + hxzntagContent + hxznnewtagContent + "</b></em><br><br><em><b>服务器 " + serverStatus + hxznsta2Content + hxznscpuContent + hxznsramContent + hxznstagContent + hxznsnewtagContent + hxznswebContent + "</b></em>";          
+        }
+    }
+);
+//]]>
+</script>
+<fieldset class="cbi-section">
+    <p id="hxzn_status">
+        <em><%:Collecting data...%></em>
+    </p>
+</fieldset>
