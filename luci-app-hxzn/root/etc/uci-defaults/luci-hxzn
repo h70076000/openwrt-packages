@@ -1,0 +1,11 @@
+#!/bin/sh
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@hxzn[-1]
+	add ucitrack hxzn
+	set ucitrack.@hxzn[-1].init=hxzn
+	commit ucitrack
+EOF
+chmod +x /etc/init.d/hxzn
+rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
+exit 0
