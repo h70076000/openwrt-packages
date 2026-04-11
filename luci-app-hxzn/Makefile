@@ -18,7 +18,7 @@ PKG_NAME:=luci-app-hxzn
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 if [ -f /etc/config/hxzn ] ; then
-  echo "备份vnt配置文件/etc/config/hxzn到/tmp/hxzn_backup"
+  echo "备份hxzn配置文件/etc/config/hxzn到/tmp/hxzn_backup"
   echo "不重启设备之前再次安装luci-app-hxzn 配置不丢失,不用重新配置"
   mv -f /etc/config/hxzn /tmp/hxzn_backup
 fi
