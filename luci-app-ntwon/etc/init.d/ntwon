@@ -1,0 +1,198 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2008-2020 OpenWrt.org
+# Copyright (C) 2022 ImmortalWrt.org
+
+START=99
+USE_PROCD=1
+PROG=/usr/bin/n2n-edge
+
+start_instance() {
+	local cfg="$1"
+
+	local type
+	config_get type "$cfg" TYPE
+
+	case "$type" in
+	edge)
+		local enabled
+		config_get_bool enabled "$cfg" 'enabled' '0'
+		[ "$enabled" = "1" ] || return 1
+		pgrep -f $PROG | xargs kill -9 >/dev/null 2>&1
+		[ -x "$PROG" ] || chmod +x $PROG
+		local masquerade tunname mode ipaddr prefix mtu
+		local supernode port second_supernode second_port
+		local community key route
+		config_get_bool masquerade "$cfg" 'masquerade' '0'
+		config_get tunname "$cfg" 'tunname'
+		config_get mode "$cfg" 'mode'
+		config_get ipaddr "$cfg" 'ipaddr'
+		config_get prefix "$cfg" 'prefix'
+		config_get mtu "$cfg" 'mtu'
+		config_get supernode "$cfg" 'supernode'
+		config_get port "$cfg" 'port'
+		config_get second_supernode "$cfg" 'second_supernode'
+		config_get second_port "$cfg" 'second_port'
+		config_get community "$cfg" 'community'
+		config_get key "$cfg" 'key'
+		config_get_bool route "$cfg" 'route' '0'
+
+		local address
+		address="$ipaddr/$prefix"
+		[ "$mode" != 'dhcp' ] || address='0.0.0.0'
+
+		procd_open_instance "edge_$cfg"
+		CMD=" -f -u 0 -g 0"
+		[ -z "$tunname" ] || CMD="${CMD} -d ${tunname}"
+		[ -z "$ipaddr" ] || CMD="${CMD} -a ${ipaddr}"
+		[ -z "$community" ] || CMD="${CMD} -c ${community}"
+		[ -z "$supernode" ] || CMD="${CMD} -l ${supernode}"
+		[ -z "$mtu" ] || CMD="${CMD} -M ${mtu}"
+		[ "$route" = "0" ] || CMD="${CMD} -r"
+		procd_set_param command /bin/sh -c  "${PROG}  ${CMD} >> /var/log/ntwon.log 2>&1"
+		procd_set_param stdout 1
+		procd_set_param stderr 1
+		procd_set_param respawn
+		procd_close_instance
+		check_log
+
+               if [ -z "$tunname" ] ; then
+                   ntwon0="$ntwon0"
+                else
+                   ntwon0="$tunname"
+                fi 
+                if [ ! -z "$PROG_port" ] ; then
+                   if [ ! -z "$(echo $PROG_port | grep ',' )" ] ; then
+	              n2n_tcp_port="${PROG_port%%,*}"
+	           else
+                      n2n_tcp_port="$PROG_port"
+                    fi
+	            uci -q delete firewall.n2nedge
+		    uci set firewall.n2nedge=rule
+		    uci set firewall.n2nedge.name="n2nedge"
+		    uci set firewall.n2nedge.target="ACCEPT"
+		    uci set firewall.n2nedge.src="wan"
+		    uci set firewall.n2nedge.proto="tcp"
+		    uci set firewall.n2nedge.dest_port="$n2n_tcp_port"
+		    uci set firewall.n2nedge.enabled="1"
+	        fi
+		#n2n_ip="$($PROG --info | awk -F 'Virtual ip:' {'print $2'} | tr -d ' \n')"
+                if [ -z "$(uci -q get network.NTWON)" ];  then				
+			uci set network.NTWON='interface'
+			if [ -z "$ipaddr" ]; then
+				uci set network.NTWON.proto='none'
+			else
+				uci set network.NTWON.proto='static'
+				uci set network.NTWON.ipaddr=$ipaddr
+				uci set network.NTWON.netmask='255.255.255.0'
+			fi
+                        uci set network.NTWON.device=$ntwon0
+                        uci set network.NTWON.ifname=$ntwon0
+		fi
+                if [ -z "$(uci -q get firewall.n2nzone)" ];  then
+				uci set firewall.n2nzone='zone'
+				uci set firewall.n2nzone.input='ACCEPT'
+				uci set firewall.n2nzone.output='ACCEPT'
+				uci set firewall.n2nzone.forward='ACCEPT'
+				uci set firewall.n2nzone.masq='1'
+                                uci set firewall.n2nzone.mtu_fix='1'
+				uci set firewall.n2nzone.name='NTWON'
+				uci set firewall.n2nzone.network='NTWON'
+		fi
+                uci set firewall.n2nfwlan=forwarding
+		uci set firewall.n2nfwlan.dest='lan'
+		uci set firewall.n2nfwlan.src='NTWON'
+                uci set firewall.n2nfwwan=forwarding
+		uci set firewall.n2nfwwan.dest='wan'
+		uci set firewall.n2nfwwan.src='NTWON'
+                uci set firewall.lanfwn2n=forwarding
+		uci set firewall.lanfwn2n.dest='NTWON'
+		uci set firewall.lanfwn2n.src='lan'
+                uci set firewall.wanfwn2n=forwarding
+		uci set firewall.wanfwn2n.dest='NTWON'
+		uci set firewall.wanfwn2n.src='wan'
+                [ -n "$(uci changes network)" ] && uci commit network && /etc/init.d/network reload >/dev/null 2>&1
+		[ -n "$(uci changes firewall)" ] && uci commit firewall && /etc/init.d/firewall reload >/dev/null 2>&1
+		[ "$forward" = "0" ] || sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1
+                [ ! -z "$checkip" ] && check
+                echo `date +%s` > /tmp/ntwon_time
+	;;
+	supernode)
+		local enabled
+		config_get_bool enabled "$cfg" 'enabled' '0'
+		[ "$enabled" = "1" ] || return 1
+
+		local port subnet
+		config_get port "$cfg" 'port'
+		config_get subnet "$cfg" 'subnet'
+
+		procd_open_instance "supernode_$cfg"
+		procd_set_param command /usr/bin/ntwon-supernode -f
+		procd_append_param command -p "$port"
+		procd_append_param command -a "$subnet"
+
+		procd_set_param stdout 1
+		procd_set_param stderr 1
+		procd_set_param respawn
+		procd_close_instance
+
+		iptables -I INPUT -p udp --dport $port -j ACCEPT -m comment --comment 'ntwon supernode port'
+	;;
+	route)
+		local enabled
+		config_get_bool enabled "$cfg" 'enabled' '0'
+		[ "$enabled" = "1" ] || return 1
+
+		local ip mask gw
+		config_get ip "$cfg" 'ip'
+		config_get mask "$cfg" 'mask'
+		config_get gw "$cfg" 'gw'
+		route add -net "${ip}/${mask}" gw "${gw}"
+	esac
+}
+
+stop_instance() {
+	local cfg="$1"
+
+	local type
+	config_get type "$cfg" TYPE
+
+	case "$type" in
+	edge)
+		local tunname masquerade
+		config_get tunname "$cfg" 'tunname'
+		config_get_bool masquerade "$cfg" 'masquerade' '0'
+
+		iptables -D FORWARD -i "$tunname" -j ACCEPT -m comment --comment 'ntwon edge eth' 2>/dev/null
+		iptables -D FORWARD -o "$tunname" -j ACCEPT -m comment --comment 'ntwon edge eth' 2>/dev/null
+		iptables -t nat -D POSTROUTING -o "$tunname" -j MASQUERADE -m comment --comment 'ntwon edge net' 2>"/dev/null"
+	;;
+	supernode)
+		local port
+		config_get port "$cfg" 'port'
+
+		iptables -D INPUT -p udp --dport "$port" -j ACCEPT -m comment --comment 'ntwon supernode port' 2>"/dev/null"
+	;;
+	esac
+}
+
+start_service() {
+	config_load 'ntwon'
+	config_foreach start_instance 'edge'
+	config_foreach start_instance 'supernode'
+	( sleep 2; config_foreach start_instance 'route'; ) &
+}
+
+stop_service() {
+	config_load 'ntwon'
+	config_foreach stop_instance 'edge'
+	config_foreach stop_instance 'supernode'
+}
+
+reload_service() {
+	stop
+	start
+}
+
+service_triggers() {
+	procd_add_reload_trigger "ntwon"
+}
