@@ -6,7 +6,7 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=v2.0
+PKG_VERSION:=v2.04
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI support for ntwon
