@@ -6,6 +6,7 @@
 
 include $(TOPDIR)/rules.mk
 
+PKG_NAME:=luci-app-ntwon
 PKG_VERSION:=v2.0
 PKG_RELEASE:=1
 
@@ -13,6 +14,6 @@ LUCI_TITLE:=LuCI support for ntwon
 LUCI_DEPENDS:=+kmod-tun
 LUCI_PKGARCH:=all
 
-PKG_NAME:=luci-app-ntwon
+include $(TOPDIR)/feeds/luci/luci.mk
 
-endef
+# call BuildPackage - OpenWrt buildroot signature
