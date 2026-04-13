@@ -1,0 +1,12 @@
+#!/bin/sh
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@ntwon[-1]
+	add ucitrack ntwon
+	set ucitrack.@ntwon[-1].init=ntwon
+	commit ucitrack
+EOF
+
+chmod +x /etc/init.d/ntwon
+rm -f /tmp/luci-indexcache
+exit 0
