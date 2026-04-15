@@ -1,0 +1,2 @@
+config nelink
+	option enabled '0'
