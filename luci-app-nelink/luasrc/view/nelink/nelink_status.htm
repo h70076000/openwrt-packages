@@ -1,0 +1,20 @@
+<script type="text/javascript">//<![CDATA[
+XHR.poll(5, '<%=url([[admin]], [[services]], [[nelink]], [[nelink_status]])%>', null,
+    function(x, data) {
+        var status = document.getElementById('nelink_status');
+        if (data && status) {
+            if (data.running) {
+                status.innerHTML = "<em><b style='color:green;'>NE组网 正在运行</b></em>";
+            } else {
+                status.innerHTML = "<em><b style='color:red;'>NE组网 未运行</b></em>";
+            }
+        }
+    }
+);
+//]]>
+</script>
+<fieldset class="cbi-section">
+    <p id="nelink_status">
+        <em>收集数据...</em>
+    </p>
+</fieldset>
