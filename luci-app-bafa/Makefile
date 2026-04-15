@@ -11,7 +11,6 @@ PKG_VERSION:=v2.0
 PKG_RELEASE:=1
 
 LUCI_TITLE:=LuCI support for bafa
-LUCI_DEPENDS:=+kmod-tun
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
