@@ -6,15 +6,10 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=v2.04
+LUCI_TITLE:=LuCI for Bafa
+LUCI_PKGARCH:=all
+PKG_VERSION:=1.0
 PKG_RELEASE:=1
 
-LUCI_TITLE:=LuCI support for ntwon
-LUCI_DEPENDS:=+kmod-tun
-LUCI_PKGARCH:=all
-
-PKG_NAME:=luci-app-ntwon
-
 include $(TOPDIR)/feeds/luci/luci.mk
-
 # call BuildPackage - OpenWrt buildroot signature
