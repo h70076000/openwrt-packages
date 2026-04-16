@@ -6,7 +6,6 @@ uci -q batch <<-EOF >/dev/null
 	set ucitrack.@ntwon[-1].init=ntwon
 	commit ucitrack
 EOF
-
 chmod +x /etc/init.d/ntwon
 rm -f /tmp/luci-indexcache
 exit 0
