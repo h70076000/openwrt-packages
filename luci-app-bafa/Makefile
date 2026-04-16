@@ -7,11 +7,11 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-bafa
 
-LUCI_TITLE:=LuCI support for alist
+LUCI_TITLE:=LuCI support for bafa
 LUCI_DEPENDS:=
 
 define Package/$(PKG_NAME)/conffiles
-/etc/bafa
+/etc/bafayun
 endef
 
 define Package/$(PKG_NAME)/postinst
