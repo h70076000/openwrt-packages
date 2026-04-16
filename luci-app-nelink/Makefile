@@ -6,15 +6,10 @@
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=v3.2.1
+LUCI_TITLE:=LuCI for Nelink
+LUCI_PKGARCH:=all
+PKG_VERSION:=3.2
 PKG_RELEASE:=1
 
-LUCI_TITLE:=LuCI support for nelink
-LUCI_DEPENDS:=+kmod-tun
-LUCI_PKGARCH:=all
-
-PKG_NAME:=luci-app-nelink
-
 include $(TOPDIR)/feeds/luci/luci.mk
-
 # call BuildPackage - OpenWrt buildroot signature
