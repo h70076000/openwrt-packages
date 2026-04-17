@@ -51,7 +51,7 @@ port.rmempty = false
 
 community = s:option(Value, "community", translate("NTWON 组网识别码"))
 community.optional = false
-
+community.readonly="readonly"
 
 route = s:option(Flag, "route", translate("Enable packet forwarding"))
 route.rmempty = false
