@@ -31,6 +31,7 @@ end
 token = s:taboption("general", Value, "token", translate("串码"),
 	translate("这是必填项！一个虚拟局域网的标识，连接同一服务器时，相同串码的设备才会组成一个局域网"))
 token.optional = false
+token.readonly="readonly"
 token.placeholder = "abc123"
 token.datatype = "string"
 token.maxlength = 63
