@@ -1,2 +1,7 @@
 config nelink
 	option enabled '0'
+	option host 'bemfa.com'
+	option port '192.168.1.1:23336'
+	option clientid 'ok2233768'
+	option tunname 'nelink0'
+	option ipaddr '10.26.3.20'
