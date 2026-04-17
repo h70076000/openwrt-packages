@@ -49,7 +49,7 @@
 		</form>
 
 		<div class="login-footer">
-			<p>© <a href="https://github.com/eamonxg/luci-theme-aurora/graphs/contributors" target="_blank" rel="noreferrer">Aurora Theme Contributors</a> · Powered by <a href="{{ entityencode(version.disturl ?? '#', true) }}" target="_blank" rel="noreferrer">{{ version.distname }}</a> & <a href="https://github.com/openwrt/luci" target="_blank" rel="noreferrer">{{ version.luciname }}</a></p>
+			<p>© <a href="http://hon2233768.3vzhuji.cn" target="_blank" rel="noreferrer">宏兴智能科技  广东.普宁</a> · HXZN @GD.PN</a></p>
 		</div>
 	</div>
 </div>
