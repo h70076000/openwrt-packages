@@ -24,6 +24,7 @@ o.placeholder = "10.26.3.x"
 
 o = s:option(Value, "clientid",translate("账户私钥"),translate("必填项不能为空"))
 o.password = true
+o.readonly="readonly"
 
 o = s:option(Value, "tunname", translate("虚拟网卡名"))
 o.default= "nelink0"
