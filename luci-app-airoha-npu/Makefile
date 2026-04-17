@@ -1,18 +1,14 @@
-#
-# Copyright (c) 2017-2019, The xterm.js authors (MIT License)
-# Copyright (c) 2014-2017, SourceLair, Private Company (www.sourcelair.com) (MIT License)
-# Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)
-#
-# This is free software, licensed under the MIT License.
-#
+# This is free software, licensed under the Apache License, Version 2.0 .
 
 include $(TOPDIR)/rules.mk
 
-PKG_VERSION:=1.0.1
-PKG_RELEASE:=1
+PKG_NAME:=luci-app-airoha-npu
+PKG_VERSION:=1.0.2
+PKG_RELEASE:=3
+
 PKG_LICENSE:=Apache-2.0
 
-LUCI_TITLE:=LuCI Airoha SoC Status (NPU, CPU, Frame Engine)
+LUCI_TITLE:=LuCI Airoha NPU Status
 LUCI_DEPENDS:=+luci-base @TARGET_airoha
 
 include $(TOPDIR)/feeds/luci/luci.mk
