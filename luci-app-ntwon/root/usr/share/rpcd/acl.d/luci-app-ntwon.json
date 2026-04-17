@@ -1,0 +1,11 @@
+{
+	"luci-app-ntwon": {
+		"description": "Grant UCI access for luci-app-ntwon",
+		"read": {
+			"uci": [ "ntwon" ]
+		},
+		"write": {
+			"uci": [ "ntwon" ]
+		}
+	}
+}
