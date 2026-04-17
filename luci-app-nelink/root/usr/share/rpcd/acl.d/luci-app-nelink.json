@@ -1,0 +1,11 @@
+{
+	"luci-app-nelink": {
+		"description": "Grant UCI access for luci-app-nelink",
+		"read": {
+			"uci": [ "nelink" ]
+		},
+		"write": {
+			"uci": [ "nelink" ]
+		}
+	}
+}
