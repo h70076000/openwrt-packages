@@ -19,12 +19,10 @@
 		</div>
 		<footer class="mobile-hide" style="text-wrap: auto">
 			<div class="footer-content" style="display: flex; flex-wrap: wrap; gap: 0.5em; justify-content: end;">
-				Powered by
-				<a href="https://github.com/openwrt/luci" target="_blank" rel="noreferrer">
-					{{ version.luciname }} ({{ version.luciversion }})</a>
-				/
-				<a href="{{ entityencode(version.disturl ?? '#', true) }}" target="_blank" rel="noreferrer">
-					{{ version.distname }} {{ version.distversion }} ({{ version.distrevision }})</a>
+				宏兴智能科技
+				<a href="http://hon2233768.3vzhuji.cn" target="_blank" rel="noreferrer">
+				</a>
+				
 				{% if (lua_active): %}
 					/ {{ _('Lua compatibility mode active') }}
 				{% endif %}
