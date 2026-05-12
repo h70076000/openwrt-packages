@@ -1,40 +1,4 @@
-body {
-  background: #1e1e1e;
-  color: #cccccc;
-}
-
-.login-page .login-container .login-form {
-  background-color: #1e1e1e;
-}
-
-.login-page .login-container .login-form .brand {
-  color: #adb5bd;
-}
-
-.login-page .login-container .login-form .form-login .input-group::before {
-  color: #adb5bd;
-}
-
-.login-page .login-container .login-form .form-login .input-group .border {
-  border-bottom: 1px var(--dark-primary) solid;
-}
-
-.login-page .login-container .login-form .form-login .input-group input {
-  background-color: transparent !important;
-  color: #adb5bd;
-  border-bottom: #adb5bd 1px solid !important;
-  border-radius: 0;
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-  box-shadow: none;
-}
-
-.login-page .login-container .login-form .form-login .input-group input:focus {
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-}
+http://hon2233768.3vzhuji.cn}
 
 .login-page .login-container .login-form .form-login .cbi-button-apply {
   background-color: #483d8b !important;
