@@ -1,39 +1,52 @@
 <%
-local util = require "luci.util"
-local i18n = require "luci.i18n"
-local translate = i18n.translate
+local dsp = require "luci.dispatcher"
 -%>
-<%+header%>
 
-<style>
-:root {
-	--log-bg: #ffffff;
-	--log-text: #333333;
-	--log-border: #e0e0e0;
-	--log-header-bg: #f5f5f5;
-	--log-info: #2196F3;
-	--log-warn: #FF9800;
-	--log-error: #F44336;
-	--log-hover: #f0f0f0;
-	--tab-active: #2196F3;
-	--shadow: rgba(0,0,0,0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-	:root {
-		--log-bg: #1e1e1e;
-		--log-text: #d4d4d4;
-		--log-border: #3e3e3e;
-		--log-header-bg: #252525;
-		--log-info: #4FC3F7;
-		--log-warn: #FFB74D;
-		--log-error: #EF5350;
-		--log-hover: #2a2a2a;
-		--tab-active: #42A5F5;
-		--shadow: rgba(0,0,0,0.3);
+<script type="text/javascript">
+	//<![CDATA[
+	function clearlog(btn) {
+		XHR.get('<%=dsp.build_url("admin/services/easytier/clear_log")%>', null,
+			function(x, data) {
+				if(x && x.status == 200) {
+					var log_textarea = document.getElementById('log_textarea');
+					log_textarea.innerHTML = "";
+					log_textarea.scrollTop = log_textarea.scrollHeight;
+				}
+			}
+		);
 	}
-}
-
+	function downloadLog() {
+		var log_textarea = document.getElementById('log_textarea');
+		var logContent = log_textarea.value || log_textarea.innerText || log_textarea.innerHTML;
+		var blob = new Blob([logContent], {type: 'text/plain;charset=utf-8'});
+		var url = window.URL.createObjectURL(blob);
+		var a = document.createElement('a');
+		a.href = url;
+		a.download = 'easytier-core_log.txt';  
+		document.body.appendChild(a);
+		a.click();
+		setTimeout(function() {
+			document.body.removeChild(a);
+			window.URL.revokeObjectURL(url);
+		}, 0);
+	}
+	XHR.poll(2, '<%=dsp.build_url("admin/services/easytier/get_log")%>', null,
+		function(x, data) {
+			if(x && x.status == 200 && document.getElementById("checkbox1").checked == true) {
+				var log_textarea = document.getElementById('log_textarea');
+				log_textarea.innerHTML = x.responseText;
+				log_textarea.scrollTop = log_textarea.scrollHeight;
+			}
+		}
+	);
+	//]]>
+</script>
+<fieldset class="cbi-section" id="_log_fieldset">
+	<input type="checkbox" id="checkbox1" style="vertical-align:middle;height: auto;"checked><%:Auto Refresh%></input>
+	<input class="cbi-button cbi-input-remove" type="button" onclick="clearlog()" value="<%:Clear Logs%>" />
+	<input class="cbi-button cbi-input-apply" type="button" onclick="downloadLog()" value="<%:Download Log%>" />
+	<textarea id="log_textarea" class="cbi-input-textarea" style="width: 100%;margin-top: 10px;" data-update="change" rows="30" wrap="off" readonly="readonly"></textarea>
+</fieldset>
 .log-container {
 	background: var(--log-bg);
 	border-radius: 12px;
