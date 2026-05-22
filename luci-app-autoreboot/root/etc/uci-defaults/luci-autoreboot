@@ -1,0 +1,11 @@
+#!/bin/sh
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@autoreboot[-1]
+	add ucitrack autoreboot
+	set ucitrack.@hxzn[-1].init=autoreboot
+	commit ucitrack
+EOF
+chmod +x /etc/init.d/autoreboot
+rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
+exit 0
