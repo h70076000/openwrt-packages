@@ -1,4 +1,4 @@
-{#
+<%#
 	Argon is a clean HTML5 theme for LuCI. It is based on luci-theme-bootstrap and MUI and Argon Template
 
 	luci-theme-argon
@@ -19,116 +19,130 @@
 	https://demos.creative-tim.com/argon-dashboard/index.html
 
 	Licensed to the public under the Apache License 2.0
--#}
+-%>
 
-{% include("themes/" + theme + "/out_header_login") %}
-{%
-	import * as fs from 'fs';
-	import { cursor } from 'uci';
-	import { rand } from 'math';
+<%+themes/argon/out_header_login%>
+<%
+	local util		= require "luci.util"
+	local fs		= require "nixio.fs"
+	local nutil		= require "nixio.util"
+	local json		= require "luci.jsonc"
+	local sys		= require "luci.sys"
+	local uci		= require 'luci.model.uci'.cursor()
 
-	let cfg = cursor();
+	-- Fetch Local Background Media
 
-	//Fetch Local Background Media
+	local function glob(...)
+		local iter, code, msg = fs.glob(...)
+		if iter then
+			return nutil.consume(iter)
+		else
+			return nil, code, msg
+		end
+	end
 
-	const imageTypes = " jpg jpeg png gif webp ";
-	const videoTypes = " mp4 webm ";
-	const allTypes = imageTypes + videoTypes;
 
-	function fetchMedia(path, themeDir) {
-		let backgroundTable = [];
-		for (f in (fs.lsdir(path))) {
-			let ext = lc(split(f, '.')?.[1]);
-			if (ext && index(allTypes, " " + ext + " ") != -1) {
-				let bg = {};
-				bg.type = ext;
-				bg.url = themeDir + f;
-				push(backgroundTable, bg);
-			}
-		}
-		return backgroundTable;
-	}
+	local imageTypes = " jpg png gif webp "
+	local videoTypes = " mp4 webm "
+	local allTypes = imageTypes .. videoTypes
+	local function fetchMedia(path, themeDir)
+		local backgroundTable = {}
+		local backgroundCount = 0
+		for i, f in ipairs(glob(path)) do
+			attr = fs.stat(f)
+			if attr then
+				local ext = fs.basename(f):match(".+%.(%w+)$")
+				if ext ~= nil then
+					ext = ext:lower()
+				end
+				if ext ~= nil and string.match(allTypes, " "..ext.." ") ~= nil then
+					local bg = {}
+					bg.type = ext
+					bg.url = themeDir .. fs.basename(f)
+					table.insert(backgroundTable, bg)
+					backgroundCount = backgroundCount + 1
+				end
+			end
+		end
+		return backgroundTable, backgroundCount
+	end
+	local function selectBackground(themeDir)
+		local bgUrl			= media .. "/img/bg1.jpg"
+		local backgroundType	= "Image"
+		local mimeType			= ""
 
-	function selectBackground(themeDir) {
-		let bgUrl = media + "/img/bg1.jpg";
-		let backgroundType = "Image";
-		let mimeType = "";
+		if fs.access("/etc/config/argon") then
+			local online_wallpaper = uci:get_first('argon', 'global', 'online_wallpaper') or (uci:get_first('argon', 'global', 'bing_background') == '1' and 'bing')
+			if (online_wallpaper and online_wallpaper ~= "none") then
+				local picurl = sys.exec("/usr/libexec/argon/online_wallpaper")
+				if (picurl and picurl ~= '') then
+					return picurl, "Image", ""
+				end
+			end
+		end
 
-		if (fs.access("/etc/config/argon")) {
-			let online_wallpaper = cfg.get_first('argon', 'global', 'online_wallpaper') ?? (cfg.get_first('argon', 'global', 'bing_background') == '1' ? 'bing' : null);
-			if (online_wallpaper && online_wallpaper != "none") {
-				const picurl = ubus.call("luci.argon_wallpaper", "get_url") ?? {};
-				if (picurl?.url) {
-					bgUrl = picurl.url;
-					return {bgUrl, backgroundType, mimeType};
-				}
-			}
-		}
+		local backgroundTable, backgroundCount = fetchMedia("/www" .. themeDir .. "*", themeDir)
+		if ( backgroundCount > 0 ) then
+			local currentBg = backgroundTable[math.random(1, backgroundCount)]
+			bgUrl			= currentBg.url
+			if (string.match(videoTypes, " "..currentBg.type.." ") ~= nil) then
+				backgroundType	= "Video"
+				mimeType		= "video/" .. currentBg.type
+			end
+		end
 
-		let background = fetchMedia("/www" + themeDir, themeDir);
-		if ( length(background) > 0 ) {
-			let currentBg = background[(rand() % length(background))];
-			bgUrl = currentBg.url;
-			if (index(videoTypes, " " + currentBg.type + " ") != -1) {
-				backgroundType = "Video";
-				mimeType = "video/" + currentBg.type;
-			}
-		}
+		return bgUrl, backgroundType, mimeType
+	end
 
-		return {bgUrl, backgroundType, mimeType};
-	}
-
-	const boardinfo = ubus.call("system", "board");
-	const hostname = striptags(boardinfo?.hostname ?? '?');
-	const themeDir = media + "/background/";
-	const bgArry = selectBackground(themeDir);
-
-%}
+	local boardinfo			= util.ubus("system", "board")
+	local themeDir			= media .. "/background/"
+	local bgUrl, backgroundType, mimeType = selectBackground(themeDir)
+%>
 <!-- Login Page Start -->
 <div class="login-page">
-	{% if ( bgArry.backgroundType == "Video" ): %}
+	<% if ( backgroundType == "Video" ) then %>
 	<!-- Video Player Start -->
 	<div class="video">
 		<video autoplay loop muted id="video">
-			<source src="{{ bgArry.bgUrl }}" type="{{ bgArry.mimeType }}">
+			<source src="<%=bgUrl%>" type="<%=mimeType%>">
 		</video>
 	</div>
 	<div class="volume-control mute"></div>
 	<script>
-		document.querySelector(".volume-control").addEventListener("click", function(){
-			if(this.classList.contains("mute")){
-				this.classList.remove("mute");
-				document.getElementById("video").muted = false;
+		$(".volume-control").click(function(){
+			if($(this).hasClass("mute")){
+				$(this).removeClass("mute")
+				$("#video").prop('muted', false);
 			}else{
-				this.classList.add("mute");
-				document.getElementById("video").muted = true;
+				$(this).addClass("mute")
+				$("#video").prop('muted', true);
 			}
-		});
+		})
 	</script>
 	<!-- Video Player End -->
-	{% else %}
+	<% else %>
 	<!-- Image Background Start -->
-	<div class="main-bg" id="main-bg" style="background-image:url({{ bgArry.bgUrl }})"></div>
+	<div class="main-bg" id="main-bg" style="background-image:url(<%=bgUrl%>)"></div>
 	<!-- Image Background End -->
-	{% endif %}
+	<% end %>
 	<!-- Login Container Start -->
 	<div class="login-container">
 		<div class="login-form">
 			<!-- Logo Start -->
-			<a class="brand" href="/"><img src="{{ media }}/img/argon.svg" class="icon">
-				<span class="brand-text">{{ hostname }}</span>
+			<a class="brand" href="/"><img src="<%=media%>/img/argon.svg" class="icon">
+				<span class="brand-text"><%=striptags( (boardinfo.hostname or "?") ) %></span>
 			</a>
 			<!-- Logo End -->
 			<!-- Login Form Start -->
-			<form class="form-login" method="post" action="{{ http.getenv("REQUEST_URI") }}">
+			<form class="form-login" method="post" action="<%=pcdata(luci.http.getenv("REQUEST_URI"))%>">
 
-				{%- if (fuser): %}
-				<div class="errorbox">{{ _('Invalid username and/or password! Please try again.') }}</div>
-				{% endif -%}
+				<%- if fuser then %>
+				<div class="errorbox"><%:Invalid username and/or password! Please try again.%></div>
+				<% end -%>
 
 				<div class="input-container">
 					<div class="input-group user-icon">
-						<input class="cbi-input-user" id="cbi-input-user" type="text" name="luci_username" value="{{ entityencode(duser, true) }}" />
+						<input class="cbi-input-user" id="cbi-input-user" type="text" name="luci_username" value="<%=duser%>" />
 						<label class="border" for="cbi-input-user"></label>
 					</div>
 					<div class="input-group pass-icon">
@@ -137,7 +151,7 @@
 					</div>
 				</div>
 				<div>
-					<input type="submit" value="{{ _('Log in') }}" class="cbi-button cbi-button-apply" />
+					<input type="submit" value="<%:Login%>" class="cbi-button cbi-button-apply" />
 				</div>
 			</form>
 			<!-- Login Form End -->
@@ -146,4 +160,4 @@
 				if (input)
 					input.focus();
 			//]]></script>
-{% include("themes/" + theme + "/footer_login") %}
+<%+themes/argon/footer_login%>
