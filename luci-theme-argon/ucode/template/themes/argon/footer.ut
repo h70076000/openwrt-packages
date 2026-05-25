@@ -1,4 +1,4 @@
-{#
+<%#
 	Argon is a clean HTML5 theme for LuCI. It is based on luci-theme-material Argon Template
 
 	luci-theme-argon
@@ -7,14 +7,14 @@
 	Have a bug? Please create an issue here on GitHub!
 	https://github.com/jerrykuku/luci-theme-argon/issues
 
-	luci-theme-material:
+	luci-theme-material: 
 	Copyright 2015 Lutty Yang <lutty@wcan.in>
-
+	
 	Agron Theme
-	https://demos.creative-tim.com/argon-dashboard/index.html
+	https://demos.creative-tim.com/argon-dashboard/index.html 
 
-	Licensed to the public under the Apache License 2.0
--#}
+	Licensed to the public under the Apache License 2.0 
+-%>
 
 <% local ver = require "luci.version" %>
 </div>
@@ -27,19 +27,16 @@
 </div>
 <script>
 	// thanks for Jo-Philipp Wich <jow@openwrt.org>
-	var luciLocation = {{ ctx.path }};
-	var winHeight = window.innerHeight;
-	window.addEventListener('resize', function () {
-		var winWidth = window.innerWidth;
+	var luciLocation = <%= luci.http.write_json(luci.dispatcher.context.path) %>;
+	var winHeight = $(window).height();
+	$(window).resize(function () {
+		var winWidth = $(window).width()
 		if(winWidth < 600){
-			var newHeight = window.innerHeight;
+			var newHeight = $(this).height();
 			var keyboradHeight = newHeight - winHeight;
-			var ftcElement = document.querySelector(".ftc");
-			if (ftcElement) {
-				ftcElement.style.bottom = (keyboradHeight + 30) + "px";
-			}
+			$(".ftc").css("bottom", keyboradHeight + 30);
 		}
-	});
+	})
 </script>
 <script type="text/javascript">L.require('menu-argon')</script>
 </body>
