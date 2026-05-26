@@ -1,15 +1,23 @@
 <%#
-	ifit is a clean HTML5 theme for LuCI.
+	
+	ifit is a clean HTML5 theme for LuCI. It is based on luci-theme-material.
 
 	luci-theme-ifit
-	Copyright 2024 Eric <xiaoqingfengatgm@gmail.com>
-	Modified by kenzok78
+	Copyright 2020 Richard Yu <xiaoqingfengatgm@gmail.com>
+	
+	luci-theme-material:
+	Copyright 2015 Lutty Yang
 
-	Have a bug? Please create an issue here on GitHub!
-	https://github.com/kenzok78/luci-theme-infinityfreedom/issues
+	luci-theme-bootstrap:
+	Copyright 2008 Steven Barth <steven@midlink.org>
+	Copyright 2008-2016 Jo-Philipp Wich <jow@openwrt.org>
+	Copyright 2012 David Menting <david@nut-bolt.nl>
+	MUI:
+	https://github.com/muicss/mui
 
 	Licensed to the public under the Apache License 2.0
 -%>
+
 <%
 	local ver = require "luci.version"
 	local disp = require "luci.dispatcher"
@@ -18,54 +26,25 @@
 	local tree = disp.node()
 	local categories = disp.node_childs(tree)
 %>
-
-                </div><!-- container-fluid -->
-
-       </div> <!-- content -->
-	   <script src="<%=media%>/js/ngRender.js"></script>
-        <!-- Footer Start -->
-        <footer class="footer">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-md-9" style="overflow: hidden; white-space: nowrap; text-overflow: ellipsis;" 
-						 title="<%= os.date("%Y") %> &copy; <%= ver.luciname %> (<%= ver.luciversion %> / <%= ver.distversion %>">
-                        <%= os.date("%Y") %> &copy; <%= ver.luciname %> (<%= ver.luciversion %> / <%= ver.distversion %>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-md-end footer-links d-none d-sm-block">
-                            <a href="https://github.com/xiaoqingfengATGH/HomeLede" target="_blank">固件源码</a>
-                            <a href="https://github.com/xiaoqingfengATGH/HomeLede/wiki" target="_blank">交流讨论</a>
-                        </div>
-                    </div>
                 </div>
+                <footer class="mobile-hide">
+                    <a href="https://github.com/openwrt/luci">Powered by <%= ver.luciname %> (<%= ver.luciversion %>)</a> /
+                    <%= ver.distversion %>
+                    <% if #categories > 1 then %>
+                    <ul class="breadcrumb pull-right" id="modemenu">
+                        <% for i, r in ipairs(categories) do %>
+                        <li<% if request[1] == r then %> class="active"<%end%>><a href="<%=controller%>/<%=r%>/"><%=striptags(translate(tree.nodes[r].title))%></a> <span class="divider">|</span></li>
+                        <% end %>
+                    </ul>
+                    <% end %>
+                </footer>
             </div>
-        </footer>
-        <!-- end Footer -->
+        </div>
 
-    </div> <!-- content-page -->
-</div> <!-- END wrapper -->
-
-
-<!-- Right bar overlay-->
-<div class="rightbar-overlay"></div>
-<script>
-jQuery(function()
-{
-	if(jQuery("body").hasClass("authentication-bg")){
-		jQuery("footer.footer").addClass("footer-login")
-		jQuery("div.content-page").addClass("content-page-login")
-	}
-})
-</script>
-<script src="<%=media%>/js/thirdLevelMenuApp.js"></script>
-<script>
-	jQuery(function(){
-		if(typeof(animation)!="undefined"){
-			animation.destroy();
-		}
-		jQuery("#loading_cover").hide()
-	})
-</script>
+    <script>
+        // thanks for Jo-Philipp Wich <jow@openwrt.org>
+        var luciLocation = <%= luci.http.write_json(luci.dispatcher.context.path) %>;
+    </script>
+    <script src="<%=media%>/js/script.js"></script>
 </body>
-
 </html>
