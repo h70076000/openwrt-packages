@@ -1,4 +1,5 @@
 #!/bin/sh
+#!/bin/sh
 
 if [ "$PKG_UPGRADE" != 1 ]; then
 	uci get luci.themes.Argon >/dev/null 2>&1 || \
